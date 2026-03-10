@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -22,6 +23,8 @@ Route::middleware('auth')->group(function (): void {
 
     Route::prefix('api')->group(function (): void {
         Route::get('/dashboard', [DashboardController::class, 'index']);
+        Route::get('/profile', [ProfileController::class, 'show']);
+        Route::put('/profile', [ProfileController::class, 'update']);
         Route::post('/events', [EventController::class, 'store']);
         Route::post('/tasks', [TaskController::class, 'store']);
         Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggle']);

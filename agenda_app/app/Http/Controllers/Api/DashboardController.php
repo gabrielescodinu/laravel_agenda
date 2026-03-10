@@ -42,8 +42,10 @@ class DashboardController extends Controller
         return response()->json([
             'user' => [
                 'name' => $user?->name ?? 'Utente',
-                'plan' => 'Premium Plan',
-                'avatar' => 'https://i.pravatar.cc/160?img=59',
+                'plan' => $user?->plan ?? 'Free Plan',
+                'avatar' => $user?->avatar_url ?: 'https://i.pravatar.cc/160?img=59',
+                'timezone' => $user?->timezone ?? 'Europe/Rome',
+                'preferred_view' => $user?->preferred_view ?? 'month',
             ],
             'calendar' => [
                 'month' => $date->locale('it')->isoFormat('MMMM'),
