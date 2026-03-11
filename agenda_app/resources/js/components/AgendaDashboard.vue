@@ -1,6 +1,7 @@
 <template>
-    <div class="flex-1 flex flex-col gap-6 overflow-hidden">
-        <header class="flex justify-between items-center gap-4">
+    <div class="flex-1 flex gap-6 overflow-hidden">
+        <div class="flex-1 flex flex-col gap-6 overflow-hidden">
+            <header class="flex justify-between items-center gap-4">
             <div class="flex items-center gap-4">
                 <img :src="user.avatar" alt="Profilo" class="w-10 h-10 rounded-full object-cover grayscale" />
                 <div>
@@ -17,9 +18,9 @@
                     <Bell class="w-5 h-5" />
                 </button>
             </div>
-        </header>
+            </header>
 
-        <div class="flex-1 bg-[#0d120d] rounded-[3rem] border border-white/5 p-6 md:p-8 flex flex-col relative overflow-hidden">
+            <div class="flex-1 bg-[#0d120d] rounded-[3rem] border border-white/5 p-6 md:p-8 flex flex-col relative overflow-hidden">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
                 <div class="flex flex-wrap items-center gap-3">
                     <h1 class="text-2xl font-black capitalize">{{ currentMonthLabel }}</h1>
@@ -143,14 +144,71 @@
                     <button class="w-full bg-lime-300 text-black py-4 rounded-2xl font-black uppercase text-xs tracking-widest">INIZIA SESSIONE</button>
                 </div>
             </div>
+            </div>
         </div>
+
+        <aside class="hidden xl:flex flex-col w-[320px] gap-6">
+            <div class="bg-[#0d120d] rounded-[2.5rem] border border-white/5 p-6">
+                <div class="flex justify-between items-center mb-5">
+                    <h4 class="font-bold capitalize">{{ selectedDateLabel }}</h4>
+                    <div class="flex gap-2">
+                        <button class="text-gray-500 hover:text-white transition" @click="shiftMonth(-1)">
+                            <ChevronLeft class="w-4 h-4" />
+                        </button>
+                        <button class="text-gray-500 hover:text-white transition" @click="shiftMonth(1)">
+                            <ChevronRight class="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-7 gap-y-4 text-center text-xs">
+                    <div v-for="d in miniWeek" :key="d" class="text-gray-600 font-bold">{{ d }}</div>
+                    <button
+                        v-for="day in daysInMonth"
+                        :key="`mini-${day}`"
+                        class="mx-auto flex items-center justify-center w-8 h-8 rounded-xl"
+                        :class="isSelectedDay(day) ? 'bg-lime-300 text-black font-bold' : 'text-gray-500 hover:text-white'"
+                        @click="selectDay(day)"
+                    >
+                        {{ day }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-[#0d120d] rounded-[2.5rem] border border-white/5 p-6 flex-1 flex flex-col min-h-0">
+                <h4 class="font-bold mb-4">Focus sui tuoi obiettivi</h4>
+                <div class="relative w-36 h-36 mx-auto mb-6">
+                    <svg class="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                        <circle cx="80" cy="80" r="70" stroke="currentColor" stroke-width="12" fill="transparent" class="text-white/5" />
+                        <circle cx="80" cy="80" r="70" stroke="currentColor" stroke-width="12" fill="transparent" class="text-lime-300 transition-all duration-700" stroke-linecap="round" stroke-dasharray="440" :stroke-dashoffset="progressOffset" />
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center flex-col">
+                        <span class="text-3xl font-black">{{ progressPercent }}%</span>
+                        <span class="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">Completato</span>
+                    </div>
+                </div>
+
+                <div class="space-y-3 overflow-y-auto custom-scrollbar pr-1">
+                    <div v-for="task in filteredTasks" :key="`side-${task.id}`" class="w-full p-3 bg-[#141c15] rounded-xl border border-white/5 hover:border-lime-300/30 transition">
+                        <div class="flex items-center justify-between gap-2">
+                            <button class="flex-1 text-left" @click="openTask(task)">
+                                <p class="text-sm font-medium" :class="task.completed ? 'text-gray-500 line-through' : ''">{{ task.title }}</p>
+                                <p class="text-[10px] text-gray-500">{{ taskTimeRange(task) }}</p>
+                            </button>
+                            <button class="w-5 h-5 rounded border flex items-center justify-center" :class="task.completed ? 'border-lime-300 bg-lime-300/10' : 'border-white/20'" @click.stop="toggleTask(task)">
+                                <Check v-if="task.completed" class="w-3 h-3 text-lime-300" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
     </div>
 </template>
 
 <script setup>
 import axios from 'axios'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { Bell, BookOpen, Plus, Search, X } from 'lucide-vue-next'
+import { Bell, BookOpen, Check, ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-vue-next'
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -159,6 +217,7 @@ const props = defineProps({
 
 const monthNames = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const weekDays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+const miniWeek = ['L', 'M', 'M', 'G', 'V', 'S', 'D']
 
 const search = ref('')
 const tasks = ref([])
@@ -257,6 +316,14 @@ const dayEntries = computed(() => {
     return entries
 })
 
+const progressPercent = computed(() => {
+    if (!tasks.value.length) return 0
+    const completed = tasks.value.filter((task) => task.completed).length
+    return Math.round((completed / tasks.value.length) * 100)
+})
+
+const progressOffset = computed(() => 440 - (440 * progressPercent.value) / 100)
+
 function defaultTaskForm(date) {
     return {
         title: '',
@@ -317,6 +384,15 @@ function changeYear(event) {
     const year = Number(event.target.value)
     currentMonth.value = new Date(year, currentMonth.value.getMonth(), 1)
     selectedDate.value = new Date(year, selectedDate.value.getMonth(), selectedDate.value.getDate())
+    void loadDashboard()
+}
+
+function shiftMonth(delta) {
+    const nextMonth = new Date(currentMonth.value.getFullYear(), currentMonth.value.getMonth() + delta, 1)
+    currentMonth.value = nextMonth
+    const maxDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate()
+    const nextDay = Math.min(selectedDate.value.getDate(), maxDay)
+    selectedDate.value = new Date(nextMonth.getFullYear(), nextMonth.getMonth(), nextDay)
     void loadDashboard()
 }
 
