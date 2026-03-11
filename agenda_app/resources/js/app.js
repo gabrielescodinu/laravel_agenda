@@ -1,5 +1,5 @@
 import './bootstrap';
 import { createApp } from 'vue';
-import AgendaDashboard from './components/AgendaDashboard.vue';
+import App from './App.vue';
 
-createApp(AgendaDashboard).mount('#app');
+createApp(App).mount('#app');
