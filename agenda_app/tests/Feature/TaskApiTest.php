@@ -104,4 +104,79 @@ class TaskApiTest extends TestCase
             'completed' => 1,
         ]);
     }
+
+    public function test_authenticated_user_can_update_task(): void
+    {
+        $user = User::factory()->create();
+
+        $task = Task::create([
+            'title' => 'Original Task',
+            'type' => 'Creativita',
+            'time_label' => '09:00',
+            'due_date' => '2026-03-22',
+            'start_time' => '09:00',
+            'end_time' => '10:00',
+            'color' => 'lime',
+            'icon' => 'book-open',
+            'participants' => [['name' => 'Alex']],
+            'completed' => false,
+        ]);
+
+        $payload = [
+            'title' => 'Task Aggiornato',
+            'type' => 'Studio',
+            'time' => '10:30',
+            'due_date' => '2026-03-25',
+            'start_time' => '10:30',
+            'end_time' => '11:45',
+            'color' => 'indigo',
+            'participants' => [
+                ['name' => 'Marta', 'avatar' => 'https://example.com/marta.jpg'],
+            ],
+        ];
+
+        $this->actingAs($user)
+            ->putJson("/api/tasks/{$task->id}", $payload)
+            ->assertOk()
+            ->assertJsonPath('task.title', 'Task Aggiornato')
+            ->assertJsonPath('task.type', 'Studio')
+            ->assertJsonPath('task.due_date', '2026-03-25')
+            ->assertJsonPath('task.start_time', '10:30')
+            ->assertJsonPath('task.end_time', '11:45');
+
+        $this->assertDatabaseHas('tasks', [
+            'id' => $task->id,
+            'title' => 'Task Aggiornato',
+            'type' => 'Studio',
+            'color' => 'indigo',
+        ]);
+    }
+
+    public function test_authenticated_user_can_delete_task(): void
+    {
+        $user = User::factory()->create();
+
+        $task = Task::create([
+            'title' => 'Task da eliminare',
+            'type' => 'Creativita',
+            'time_label' => '12:00',
+            'due_date' => '2026-03-26',
+            'start_time' => '12:00',
+            'end_time' => '13:00',
+            'color' => 'blue',
+            'icon' => 'book-open',
+            'participants' => [],
+            'completed' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->deleteJson("/api/tasks/{$task->id}")
+            ->assertOk()
+            ->assertJsonPath('deleted', true)
+            ->assertJsonPath('id', $task->id);
+
+        $this->assertDatabaseMissing('tasks', [
+            'id' => $task->id,
+        ]);
+    }
 }

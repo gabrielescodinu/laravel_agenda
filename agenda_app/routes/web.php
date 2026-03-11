@@ -25,8 +25,11 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/dashboard', [DashboardController::class, 'index']);
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::put('/profile', [ProfileController::class, 'update']);
+        Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar']);
         Route::post('/events', [EventController::class, 'store']);
         Route::post('/tasks', [TaskController::class, 'store']);
+        Route::put('/tasks/{task}', [TaskController::class, 'update']);
+        Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
         Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggle']);
     });
 });

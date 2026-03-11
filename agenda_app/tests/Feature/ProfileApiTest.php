@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ProfileApiTest extends TestCase
@@ -79,5 +81,25 @@ class ProfileApiTest extends TestCase
 
         $response->assertUnprocessable();
         $response->assertJsonValidationErrors(['email', 'preferred_view']);
+    }
+
+    public function test_authenticated_user_can_upload_avatar_image(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create(['avatar_url' => null]);
+
+        $response = $this->actingAs($user)->postJson('/api/profile/avatar', [
+            'avatar' => UploadedFile::fake()->image('avatar.jpg', 300, 300),
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('profile.name', $user->name);
+        $avatarUrl = $response->json('profile.avatar_url');
+        $this->assertIsString($avatarUrl);
+        $this->assertStringContainsString('/storage/profile-avatars/', $avatarUrl);
+
+        $storedPath = $user->fresh()->avatar_url;
+        $this->assertNotNull($storedPath);
+        Storage::disk('public')->assertExists($storedPath);
     }
 }

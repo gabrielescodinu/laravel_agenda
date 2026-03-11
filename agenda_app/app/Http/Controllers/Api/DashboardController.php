@@ -8,6 +8,7 @@ use App\Models\Task;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class DashboardController extends Controller
 {
@@ -43,7 +44,7 @@ class DashboardController extends Controller
             'user' => [
                 'name' => $user?->name ?? 'Utente',
                 'plan' => $user?->plan ?? 'Free Plan',
-                'avatar' => $user?->avatar_url ?: 'https://i.pravatar.cc/160?img=59',
+                'avatar' => $this->avatarUrl($user?->avatar_url) ?: 'https://i.pravatar.cc/160?img=59',
                 'timezone' => $user?->timezone ?? 'Europe/Rome',
                 'preferred_view' => $user?->preferred_view ?? 'month',
             ],
@@ -54,5 +55,18 @@ class DashboardController extends Controller
             ],
             'tasks' => $tasks,
         ]);
+    }
+
+    private function avatarUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        return Storage::url($path);
     }
 }

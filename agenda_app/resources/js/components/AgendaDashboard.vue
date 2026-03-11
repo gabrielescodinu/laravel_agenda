@@ -125,23 +125,51 @@
 
             <div v-if="selectedTask" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[360px] glass-modal rounded-[2.5rem] p-8 shadow-2xl z-50">
                 <div class="flex justify-between items-start mb-6">
-                    <h3 class="text-3xl font-black">{{ selectedTask.title }}</h3>
+                    <h3 v-if="!taskEditing" class="text-3xl font-black">{{ selectedTask.title }}</h3>
+                    <input
+                        v-else
+                        v-model="taskForm.title"
+                        class="text-xl font-black bg-[#141c15] border border-white/10 rounded-lg px-3 py-2 w-full mr-2"
+                    />
                     <button class="text-gray-500 hover:text-white transition" @click="selectedTask = null"><X class="w-5 h-5" /></button>
                 </div>
                 <div class="space-y-6">
                     <div class="flex items-center gap-4">
                         <div class="w-10 h-10 rounded-full flex items-center justify-center" :style="modalIconStyle(selectedTask.color)"><component :is="iconFor(selectedTask.icon)" class="w-5 h-5" /></div>
-                        <div><p class="text-[10px] text-gray-500 uppercase font-bold">TIPO</p><p class="text-sm font-semibold">{{ selectedTask.type }}</p></div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 uppercase font-bold">TIPO</p>
+                            <p v-if="!taskEditing" class="text-sm font-semibold">{{ selectedTask.type }}</p>
+                            <input v-else v-model="taskForm.type" class="bg-[#141c15] border border-white/10 rounded-lg px-3 py-1.5 text-sm mt-1" />
+                        </div>
                     </div>
                     <div class="flex gap-10">
-                        <div><p class="text-[10px] text-gray-500 uppercase font-bold">ORARIO</p><p class="text-sm font-semibold">{{ taskTimeRange(selectedTask) }}</p></div>
-                        <div><p class="text-[10px] text-gray-500 uppercase font-bold">DATA</p><p class="text-sm font-semibold">{{ formatTaskDate(selectedTask) }}</p></div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 uppercase font-bold">ORARIO</p>
+                            <p v-if="!taskEditing" class="text-sm font-semibold">{{ taskTimeRange(selectedTask) }}</p>
+                            <div v-else class="flex gap-2 mt-1">
+                                <input v-model="taskForm.start_time" type="time" class="bg-[#141c15] border border-white/10 rounded-lg px-2 py-1 text-xs" />
+                                <input v-model="taskForm.end_time" type="time" class="bg-[#141c15] border border-white/10 rounded-lg px-2 py-1 text-xs" />
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-500 uppercase font-bold">DATA</p>
+                            <p v-if="!taskEditing" class="text-sm font-semibold">{{ formatTaskDate(selectedTask) }}</p>
+                            <input v-else v-model="taskForm.due_date" type="date" class="bg-[#141c15] border border-white/10 rounded-lg px-3 py-1.5 text-sm mt-1" />
+                        </div>
                     </div>
                     <div>
                         <p class="text-[10px] text-gray-500 uppercase font-bold mb-3">PARTECIPANTI</p>
-                        <div class="flex -space-x-3"><img v-for="(participant, index) in selectedTask.participants" :key="`${participant.name}-${index}`" :src="participant.avatar || avatarForName(participant.name, index)" :alt="participant.name" class="w-8 h-8 rounded-full border-2 border-[#0d120d]" /></div>
+                        <div v-if="!taskEditing" class="flex -space-x-3">
+                            <img v-for="(participant, index) in selectedTask.participants" :key="`${participant.name}-${index}`" :src="participant.avatar || avatarForName(participant.name, index)" :alt="participant.name" class="w-8 h-8 rounded-full border-2 border-[#0d120d]" />
+                        </div>
+                        <input v-else v-model="taskForm.participants_text" class="w-full bg-[#141c15] border border-white/10 rounded-lg px-3 py-1.5 text-sm" />
                     </div>
-                    <button class="w-full bg-lime-300 text-black py-4 rounded-2xl font-black uppercase text-xs tracking-widest">INIZIA SESSIONE</button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button v-if="!taskEditing" class="bg-lime-300 text-black py-3 rounded-xl font-black uppercase text-xs tracking-widest" @click="startTaskEdit">Modifica</button>
+                        <button v-else class="bg-lime-300 text-black py-3 rounded-xl font-black uppercase text-xs tracking-widest" @click="saveTaskChanges">Salva</button>
+                        <button v-if="taskEditing" class="bg-white/10 text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest" @click="taskEditing = false">Annulla</button>
+                        <button class="bg-red-500/80 text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest" @click="deleteTask(selectedTask.id)">Elimina</button>
+                    </div>
                 </div>
             </div>
             </div>
@@ -224,8 +252,18 @@ const tasks = ref([])
 const events = ref([])
 const selectedEvent = ref(null)
 const selectedTask = ref(null)
+const taskEditing = ref(false)
 const openTaskComposer = ref(false)
 const savingTask = ref(false)
+const taskForm = reactive({
+    title: '',
+    type: 'Generale',
+    due_date: '',
+    start_time: '11:00',
+    end_time: '12:30',
+    color: 'lime',
+    participants_text: '',
+})
 
 const today = new Date()
 const currentMonth = ref(new Date(today.getFullYear(), today.getMonth(), 1))
@@ -417,6 +455,7 @@ function avatarForName(name, index) {
 }
 
 function participantsFromText(text) {
+    if (!text) return []
     return text
         .split(',')
         .map((name) => name.trim())
@@ -424,19 +463,27 @@ function participantsFromText(text) {
         .map((name) => ({ name, avatar: avatarForName(name, 0) }))
 }
 
+function participantsToText(participants) {
+    if (!Array.isArray(participants)) return ''
+    return participants.map((participant) => participant?.name).filter(Boolean).join(', ')
+}
+
 function openEvent(event) {
     selectedTask.value = null
+    taskEditing.value = false
     selectedEvent.value = event
 }
 
 function openTask(task) {
     selectedEvent.value = null
     selectedTask.value = task
+    taskEditing.value = false
 }
 
 function closeOverlays() {
     selectedEvent.value = null
     selectedTask.value = null
+    taskEditing.value = false
 }
 
 function formatEventTime(event) {
@@ -490,6 +537,50 @@ async function createTask() {
     } finally {
         savingTask.value = false
     }
+}
+
+function startTaskEdit() {
+    if (!selectedTask.value) return
+    taskForm.title = selectedTask.value.title ?? ''
+    taskForm.type = selectedTask.value.type ?? 'Generale'
+    taskForm.due_date = selectedTask.value.due_date ?? toLocalDate(selectedDate.value)
+    taskForm.start_time = selectedTask.value.start_time?.slice(0, 5) ?? '11:00'
+    taskForm.end_time = selectedTask.value.end_time?.slice(0, 5) ?? '12:30'
+    taskForm.color = selectedTask.value.color ?? 'lime'
+    taskForm.participants_text = participantsToText(selectedTask.value.participants)
+    taskEditing.value = true
+}
+
+async function saveTaskChanges() {
+    if (!selectedTask.value) return
+
+    const payload = {
+        title: taskForm.title,
+        type: taskForm.type,
+        time: taskForm.start_time,
+        due_date: taskForm.due_date,
+        start_time: taskForm.start_time,
+        end_time: taskForm.end_time,
+        color: taskForm.color,
+        participants: participantsFromText(taskForm.participants_text),
+    }
+
+    const { data } = await axios.put(`/api/tasks/${selectedTask.value.id}`, payload)
+    const updatedTask = data.task
+
+    tasks.value = tasks.value.map((item) => (item.id === updatedTask.id ? updatedTask : item))
+    selectedTask.value = updatedTask
+    taskEditing.value = false
+}
+
+async function deleteTask(taskId) {
+    if (!taskId) return
+    if (!window.confirm('Eliminare questo task?')) return
+
+    await axios.delete(`/api/tasks/${taskId}`)
+    tasks.value = tasks.value.filter((item) => item.id !== taskId)
+    selectedTask.value = null
+    taskEditing.value = false
 }
 
 defineExpose({
